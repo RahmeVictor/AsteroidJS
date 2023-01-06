@@ -1,20 +1,21 @@
+const defaultFont = '21px Arial';
+
 let canvas;
 let ctx;
 let canvasWidth = 1400;
 let canvasHeight = 800;
 let keys = [];
+
 let ship;
 let bullets = [];
 let asteroids = [];
 let score = 0;
 let lives = 3;
-
 let highScore;
-let localStorageName = "HighScore";
+let scoreStorage = "Score";
 
-const defaultFont = '21px Arial';
 
-document.addEventListener('DOMContentLoaded', SetupCanvas);
+document.addEventListener('DOMContentLoaded', setupCanvas);
 
 
 function toRadians(angle) {
@@ -31,11 +32,24 @@ function wrapScreen(value, screenLimit) {
     return value;
 }
 
-function resetLevel(){
-
+function resetShip() {
+    ship.x = canvasWidth / 2;
+    ship.y = canvasHeight / 2;
+    ship.velX = 0;
+    ship.velY = 0;
 }
 
-function SetupCanvas() {
+
+function resetLevel() {
+    resetShip();
+    for (let i = 0; i < 8; i++) {
+        let asteroid = new Asteroid();
+        asteroids.push(asteroid);
+    }
+}
+
+
+function setupCanvas() {
     canvas = document.getElementById("game-canvas");
     ctx = canvas.getContext("2d");
     canvas.width = canvasWidth;
@@ -60,14 +74,14 @@ function SetupCanvas() {
     //         bullets.push(new Bullet(ship.angle));
     //     }
     // });
-    document.body.addEventListener("keydown", HandleKeyDown);
-    document.body.addEventListener("keyup", HandleKeyUp);
+    document.body.addEventListener("keydown", onKeyDown);
+    document.body.addEventListener("keyup", onKeyUp);
 
     // Retrieves locally stored high scores
-    if (localStorage.getItem(localStorageName) == null) {
+    if (localStorage.getItem(scoreStorage) == null) {
         highScore = 0;
     } else {
-        highScore = localStorage.getItem(localStorageName);
+        highScore = localStorage.getItem(scoreStorage);
     }
 
     Render();
@@ -75,15 +89,12 @@ function SetupCanvas() {
 
 // Move event handling functions so that we can turn off
 // event handling if game over is reached
-function HandleKeyDown(e) {
+function onKeyDown(e) {
     keys[e.keyCode] = true;
 }
 
-function HandleKeyUp(e) {
+function onKeyUp(e) {
     keys[e.keyCode] = false;
-    if (e.keyCode === 32) {
-        bullets.push(new Bullet(ship.angle));
-    }
 }
 
 class Ship {
@@ -117,14 +128,15 @@ class Ship {
         if (this.movingForward) {
             this.velX += Math.cos(radians) * this.speed;
             this.velY += Math.sin(radians) * this.speed;
+        } else {
+            // Slow ship speed when not holding key
+            this.velX *= 0.99;
+            this.velY *= 0.99;
         }
+
         // If ship goes off board place it on the opposite side
         this.x = wrapScreen(this.x, canvas.width);
         this.y = wrapScreen(this.y, canvas.height);
-
-        // Slow ship speed when not holding key
-        this.velX *= 0.99;
-        this.velY *= 0.99;
 
         // Change value of x & y while accounting for air friction
         this.x -= this.velX;
@@ -143,7 +155,8 @@ class Ship {
         this.noseY = this.y - this.radius * Math.sin(radians);
 
         for (let i = 0; i < 3; i++) {
-            ctx.lineTo(this.x - this.radius * Math.cos(vertAngle * i + radians), this.y - this.radius * Math.sin(vertAngle * i + radians));
+            ctx.lineTo(this.x - this.radius * Math.cos(vertAngle * i + radians),
+                this.y - this.radius * Math.sin(vertAngle * i + radians));
         }
         ctx.closePath();
         ctx.stroke();
@@ -164,6 +177,9 @@ class Bullet {
         let radians = toRadians(this.angle);
         this.x -= Math.cos(radians) * this.speed;
         this.y -= Math.sin(radians) * this.speed;
+
+        this.x = wrapScreen(this.x, canvas.width);
+        this.y = wrapScreen(this.y, canvas.height);
     }
 
     Draw() {
@@ -231,38 +247,31 @@ function Render() {
         ship.Rotate(-1);
     }
 
-    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+    // Lanseaza racheta
+    if (keys[32] && bullets.length < 3) {
+        bullets.push(new Bullet(ship.angle));
+        keys[32] = false;
+    }
 
-    // Display score
-    ctx.fillStyle = 'white';
-    ctx.font = defaultFont;
-    ctx.fillText("SCOR : " + score.toString(), 20, 40);
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
     // If no lives signal game over
     if (lives <= 0) {
         // If Game over remove event listeners to stop getting keyboard input
-        document.body.removeEventListener("keydown", HandleKeyDown);
-        document.body.removeEventListener("keyup", HandleKeyUp);
+        document.body.removeEventListener("keydown", onKeyDown);
+        document.body.removeEventListener("keyup", onKeyUp);
 
         ctx.fillStyle = 'white';
         ctx.font = '100px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('AI MURIT :(', canvasWidth / 2, canvasHeight / 2);
+        ctx.fillText('AI MURIT 🕹️', canvasWidth / 2, canvasHeight / 2);
+        ctx.fillText('Scor: ' + score, canvasWidth / 2, canvasHeight / 2 + 100);
         ctx.font = defaultFont;
         ctx.textAlign = 'start';
     }
 
     // If you beat this level, create a new one
-    if (asteroids.length === 0) {
-        ship.x = canvasWidth / 2;
-        ship.y = canvasHeight / 2;
-        ship.velX = 0;
-        ship.velY = 0;
-        for (let i = 0; i < 8; i++) {
-            let asteroid = new Asteroid();
-            asteroids.push(asteroid);
-        }
-    }
+    if (asteroids.length === 0) resetLevel();
 
     // Draw life ships
     DrawLifeShips();
@@ -271,10 +280,7 @@ function Render() {
     if (asteroids.length !== 0) {
         for (let k = 0; k < asteroids.length; k++) {
             if (CircleCollision(ship.x, ship.y, 11, asteroids[k].x, asteroids[k].y, asteroids[k].collisionRadius)) {
-                ship.x = canvasWidth / 2;
-                ship.y = canvasHeight / 2;
-                ship.velX = 0;
-                ship.velY = 0;
+                resetShip();
                 lives -= 1;
             }
         }
@@ -317,10 +323,16 @@ function Render() {
         asteroids[j].Draw();
     }
 
+    // Display score
+    ctx.fillStyle = 'white';
+    ctx.font = defaultFont;
+    ctx.fillText("SCOR : " + score.toString(), 20, 40);
+
     // Updates the high score using local storage
     highScore = Math.max(score, highScore);
-    localStorage.setItem(localStorageName, highScore);
+    localStorage.setItem(scoreStorage, highScore);
     ctx.fillText("SCOR MAXIM : " + highScore.toString(), 20, 80);
+
 
     requestAnimationFrame(Render);
 }
