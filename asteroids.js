@@ -11,7 +11,7 @@ let lives = 3;
 let score = 0;
 let healedScore = 0;
 let highScore = 0;
-let scoreStorage = "Score";
+const scoreStorage = "Score";
 
 
 document.addEventListener('DOMContentLoaded', setupCanvas);
@@ -144,10 +144,10 @@ class Ship {
 }
 
 class Bullet {
-    constructor(angle) {
+    constructor() {
         this.x = ship.noseX;
         this.y = ship.noseY;
-        this.angle = angle;
+        this.angle = ship.angle;
         this.height = 4;
         this.width = 4;
         this.speed = 5;
@@ -229,7 +229,7 @@ function Render() {
 
     // Lanseaza racheta
     if (keys.find(key => key === ' ') && bullets.length < 3) {
-        bullets.push(new Bullet(ship.angle));
+        bullets.push(new Bullet());
         keys = keys.filter(key => key !== ' ');
     }
 
@@ -237,8 +237,6 @@ function Render() {
 
     // If no lives signal game over
     if (lives <= 0) {
-
-
         ctx.fillStyle = 'white';
         ctx.font = '100px Arial';
         ctx.textAlign = 'center';
@@ -246,6 +244,8 @@ function Render() {
         ctx.fillText('Scor: ' + score, canvas.width / 2, canvas.height / 2 + 100);
         ctx.font = defaultFont;
         ctx.textAlign = 'start';
+        requestAnimationFrame(Render);
+        return;
     }
 
     // If you beat this level, create a new one
@@ -259,7 +259,7 @@ function Render() {
         for (let k = 0; k < asteroids.length; k++) {
             if (CircleCollision(ship.x, ship.y, 11, asteroids[k].x, asteroids[k].y, asteroids[k].collisionRadius)) {
                 resetShip();
-                lives -= 1;
+                if (lives > 0) lives -= 1;
             }
         }
     }
@@ -307,9 +307,9 @@ function Render() {
     ctx.fillText("SCOR : " + score.toString(), 20, 40);
 
     // Adauga o viata la fiecare interval de puncte facute
-    if (score - healedScore > 20 && lives < 4) {
+    if (score - healedScore >= 100 && lives < 4) {
         healedScore = score;
-        lives += 1
+        lives += 1;
     }
 
     // Stocheaza scor maxim
