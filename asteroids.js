@@ -2,16 +2,15 @@ const defaultFont = '21px Arial';
 
 let canvas;
 let ctx;
-let canvasWidth = 1400;
-let canvasHeight = 800;
 let keys = [];
 
 let ship;
 let bullets = [];
 let asteroids = [];
-let score = 0;
 let lives = 3;
-let highScore;
+let score = 0;
+let healedScore = 0;
+let highScore = 0;
 let scoreStorage = "Score";
 
 
@@ -33,8 +32,8 @@ function wrapScreen(value, screenLimit) {
 }
 
 function resetShip() {
-    ship.x = canvasWidth / 2;
-    ship.y = canvasHeight / 2;
+    ship.x = canvas.width / 2;
+    ship.y = canvas.height / 2;
     ship.velX = 0;
     ship.velY = 0;
 }
@@ -52,8 +51,8 @@ function resetLevel() {
 function setupCanvas() {
     canvas = document.getElementById("game-canvas");
     ctx = canvas.getContext("2d");
-    canvas.width = canvasWidth;
-    canvas.height = canvasHeight;
+    canvas.width = 1400;
+    canvas.height = 800;
     ctx.fillStyle = "black";
     ctx.textBaseline = "middle";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -63,19 +62,12 @@ function setupCanvas() {
         asteroids.push(new Asteroid());
     }
 
-    // Store all possible keycodes in an array so that
-    // multiple keys can work at the same time
-    // document.body.addEventListener("keydown", function(e) {
-    //     keys[e.keyCode] = true;
-    // });
-    // document.body.addEventListener("keyup", function(e) {
-    //     keys[e.keyCode] = false;
-    //     if (e.keyCode === 32){
-    //         bullets.push(new Bullet(ship.angle));
-    //     }
-    // });
-    document.body.addEventListener("keydown", onKeyDown);
-    document.body.addEventListener("keyup", onKeyUp);
+    document.body.addEventListener("keydown", function (e) {
+        keys.push(e.key);
+    });
+    document.body.addEventListener("keyup", function (e) {
+        keys = keys.filter(key => key !== e.key);
+    });
 
     // Retrieves locally stored high scores
     if (localStorage.getItem(scoreStorage) == null) {
@@ -87,20 +79,10 @@ function setupCanvas() {
     Render();
 }
 
-// Move event handling functions so that we can turn off
-// event handling if game over is reached
-function onKeyDown(e) {
-    keys[e.keyCode] = true;
-}
-
-function onKeyUp(e) {
-    keys[e.keyCode] = false;
-}
-
 class Ship {
     constructor() {
-        this.x = canvasWidth / 2;
-        this.y = canvasHeight / 2;
+        this.x = canvas.width / 2;
+        this.y = canvas.height / 2;
         this.movingForward = false;
         this.speed = 0.1;
         this.velX = 0;
@@ -109,8 +91,8 @@ class Ship {
         this.radius = 15;
         this.angle = 0;
         // Used to know where to fire the bullet from
-        this.noseX = canvasWidth / 2 + 15;
-        this.noseY = canvasHeight / 2;
+        this.noseX = canvas.width / 2 + 15;
+        this.noseY = canvas.height / 2;
     }
 
     Rotate(dir) {
@@ -133,14 +115,12 @@ class Ship {
             this.velX *= 0.99;
             this.velY *= 0.99;
         }
-
-        // If ship goes off board place it on the opposite side
-        this.x = wrapScreen(this.x, canvas.width);
-        this.y = wrapScreen(this.y, canvas.height);
-
-        // Change value of x & y while accounting for air friction
         this.x -= this.velX;
         this.y -= this.velY;
+
+        // Daca nava trece de ecran, teleporteaz-o in partea cealalta
+        this.x = wrapScreen(this.x, canvas.width);
+        this.y = wrapScreen(this.y, canvas.height);
     }
 
     Draw() {
@@ -191,8 +171,8 @@ class Bullet {
 class Asteroid {
     constructor() {
         this.level = Math.floor(Math.random() * 4) + 1;
-        this.x = Math.floor(Math.random() * canvasWidth);
-        this.y = Math.floor(Math.random() * canvasHeight);
+        this.x = Math.floor(Math.random() * canvas.width);
+        this.y = Math.floor(Math.random() * canvas.height);
         this.speed = 2;
         this.radius = 30 + this.level * 5;
         this.angle = Math.floor(Math.random() * 359);
@@ -236,36 +216,34 @@ function DrawLifeShips() {
 
 function Render() {
     // Check if the ship is moving forward
-    ship.movingForward = (keys[87]);
+    ship.movingForward = (keys.find(key => key === 'ArrowUp'));
 
-    if (keys[68]) {
+    if (keys.find(key => key === 'c')) {
         // d key rotate right
         ship.Rotate(1);
     }
-    if (keys[65]) {
+    if (keys.find(key => key === 'x')) {
         // a key rotate left
         ship.Rotate(-1);
     }
 
     // Lanseaza racheta
-    if (keys[32] && bullets.length < 3) {
+    if (keys.find(key => key === ' ') && bullets.length < 3) {
         bullets.push(new Bullet(ship.angle));
-        keys[32] = false;
+        keys = keys.filter(key => key !== ' ');
     }
 
-    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // If no lives signal game over
     if (lives <= 0) {
-        // If Game over remove event listeners to stop getting keyboard input
-        document.body.removeEventListener("keydown", onKeyDown);
-        document.body.removeEventListener("keyup", onKeyUp);
+
 
         ctx.fillStyle = 'white';
         ctx.font = '100px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('AI MURIT 🕹️', canvasWidth / 2, canvasHeight / 2);
-        ctx.fillText('Scor: ' + score, canvasWidth / 2, canvasHeight / 2 + 100);
+        ctx.fillText('AI MURIT 🕹️', canvas.width / 2, canvas.height / 2);
+        ctx.fillText('Scor: ' + score, canvas.width / 2, canvas.height / 2 + 100);
         ctx.font = defaultFont;
         ctx.textAlign = 'start';
     }
@@ -307,28 +285,34 @@ function Render() {
             }
     }
 
-    // Updateaza nava
+    // Deseneaza nava
     ship.Update();
     ship.Draw();
 
-    // Updateaza rachetele
+    // Deseneaza rachetele
     for (let i = 0; i < bullets.length; i++) {
         bullets[i].Update();
         bullets[i].Draw();
     }
 
-    // Updateaza asteroizii
+    // Deseneaza asteroizii
     for (let j = 0; j < asteroids.length; j++) {
         asteroids[j].Update();
         asteroids[j].Draw();
     }
 
-    // Display score
+    // Afiseaza scor
     ctx.fillStyle = 'white';
     ctx.font = defaultFont;
     ctx.fillText("SCOR : " + score.toString(), 20, 40);
 
-    // Updates the high score using local storage
+    // Adauga o viata la fiecare interval de puncte facute
+    if (score - healedScore > 20 && lives < 4) {
+        healedScore = score;
+        lives += 1
+    }
+
+    // Stocheaza scor maxim
     highScore = Math.max(score, highScore);
     localStorage.setItem(scoreStorage, highScore);
     ctx.fillText("SCOR MAXIM : " + highScore.toString(), 20, 80);
