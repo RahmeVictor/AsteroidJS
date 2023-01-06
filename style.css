@@ -1,0 +1,12 @@
+body {
+    background: #000;
+}
+
+#canvas-container {
+    max-width: 1400px;
+    margin: auto;
+}
+
+#game-canvas {
+    background: #000;
+}
