@@ -5,17 +5,21 @@ let ctx;
 let keys = [];
 
 let ship;
-let bullets = [];
+let rockets = [];
 let asteroids = [];
 let lives = 3;
 let score = 0;
 let healedScore = 0;
 let highScore = 0;
-const scoreStorage = "Score";
+const scoreStorage = 'Score';
 
 
 document.addEventListener('DOMContentLoaded', setupCanvas);
 
+
+function randomBetween(min, max) {
+    return Math.random() * (max - min) + min;
+}
 
 function toRadians(angle) {
     return angle / Math.PI * 180;
@@ -47,14 +51,13 @@ function resetLevel() {
     }
 }
 
-
 function setupCanvas() {
-    canvas = document.getElementById("game-canvas");
-    ctx = canvas.getContext("2d");
+    canvas = document.getElementById('game-canvas');
+    ctx = canvas.getContext('2d');
     canvas.width = 1400;
     canvas.height = 800;
-    ctx.fillStyle = "black";
-    ctx.textBaseline = "middle";
+    ctx.fillStyle = 'black';
+    ctx.textBaseline = 'middle';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ship = new Ship();
 
@@ -62,10 +65,10 @@ function setupCanvas() {
         asteroids.push(new Asteroid());
     }
 
-    document.body.addEventListener("keydown", function (e) {
+    document.body.addEventListener('keydown', function (e) {
         keys.push(e.key);
     });
-    document.body.addEventListener("keyup", function (e) {
+    document.body.addEventListener('keyup', function (e) {
         keys = keys.filter(key => key !== e.key);
     });
 
@@ -76,7 +79,7 @@ function setupCanvas() {
         highScore = localStorage.getItem(scoreStorage);
     }
 
-    Render();
+    render();
 }
 
 class Ship {
@@ -95,11 +98,11 @@ class Ship {
         this.noseY = canvas.height / 2;
     }
 
-    Rotate(dir) {
+    rotate(dir) {
         this.angle += this.rotateSpeed * dir;
     }
 
-    Update() {
+    update() {
         // Get current direction ship is facing
         let radians = toRadians(this.angle);
 
@@ -118,12 +121,12 @@ class Ship {
         this.x -= this.velX;
         this.y -= this.velY;
 
-        // Daca nava trece de ecran, teleporteaz-o in partea cealalta
+        // Daca nava trece de ecran, pune-o in partea cealalta
         this.x = wrapScreen(this.x, canvas.width);
         this.y = wrapScreen(this.y, canvas.height);
     }
 
-    Draw() {
+    draw() {
         ctx.strokeStyle = 'white';
         ctx.beginPath();
         // Angle between vertices of the ship
@@ -153,7 +156,21 @@ class Bullet {
         this.speed = 5;
     }
 
-    Update() {
+    checkCollision(bulletIndex) {
+        for (let l = 0; l < asteroids.length; l++) {
+            if (CircleCollision(this.x, this.y, 3, asteroids[l].x, asteroids[l].y, asteroids[l].collisionRadius)) {
+                asteroids[l].lives -= 1;
+                if (asteroids[l].lives <= 0) {
+                    asteroids.splice(l, 1);
+                }
+                rockets.splice(bulletIndex, 1);
+                score += 20;
+                return;
+            }
+        }
+    }
+
+    update() {
         let radians = toRadians(this.angle);
         this.x -= Math.cos(radians) * this.speed;
         this.y -= Math.sin(radians) * this.speed;
@@ -162,7 +179,7 @@ class Bullet {
         this.y = wrapScreen(this.y, canvas.height);
     }
 
-    Draw() {
+    draw() {
         ctx.fillStyle = 'white';
         ctx.fillRect(this.x, this.y, this.width, this.height);
     }
@@ -170,16 +187,29 @@ class Bullet {
 
 class Asteroid {
     constructor() {
-        this.level = Math.floor(Math.random() * 4) + 1;
+        this.lives = Math.floor(Math.random() * 4) + 1;
         this.x = Math.floor(Math.random() * canvas.width);
         this.y = Math.floor(Math.random() * canvas.height);
-        this.speed = 2;
-        this.radius = 30 + this.level * 5;
+        this.speed = randomBetween(0.5, 2.3);
+        this.radius = 30 + this.lives * 5;
         this.angle = Math.floor(Math.random() * 359);
         this.collisionRadius = 46;
     }
 
-    Update() {
+    getColor(){
+        switch(this.lives){
+            case 1:
+                return 'green'
+            case 2:
+                return 'blue'
+            case 3:
+                return 'yellow'
+            case 4:
+                return 'white'
+        }
+    }
+
+    update() {
         let radians = toRadians(this.angle);
         this.x += Math.cos(radians) * this.speed;
         this.y += Math.sin(radians) * this.speed;
@@ -188,12 +218,13 @@ class Asteroid {
         this.y = wrapScreen(this.y, canvas.height);
     }
 
-    Draw() {
+    draw() {
         ctx.beginPath();
+        ctx.strokeStyle = this.getColor();
         ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
-        ctx.textAlign = "center";
-        ctx.fillText(this.level, this.x, this.y);
-        ctx.textAlign = "start";
+        ctx.textAlign = 'center';
+        ctx.fillText(this.lives, this.x, this.y);
+        ctx.textAlign = 'start';
         ctx.closePath();
         ctx.stroke();
     }
@@ -207,29 +238,22 @@ function CircleCollision(p1x, p1y, r1, p2x, p2y, r2) {
     return radiusSum > Math.sqrt((xDiff * xDiff) + (yDiff * yDiff));
 }
 
-// Handles drawing life ships on screen
-function DrawLifeShips() {
-    ctx.font = '30px Arial';
-    ctx.fillText('❤️'.repeat(lives), 1200, 40);
-    ctx.font = defaultFont;
-}
-
-function Render() {
+function render() {
     // Check if the ship is moving forward
     ship.movingForward = (keys.find(key => key === 'ArrowUp'));
 
     if (keys.find(key => key === 'c')) {
         // d key rotate right
-        ship.Rotate(1);
+        ship.rotate(1);
     }
     if (keys.find(key => key === 'x')) {
         // a key rotate left
-        ship.Rotate(-1);
+        ship.rotate(-1);
     }
 
     // Lanseaza racheta
-    if (keys.find(key => key === ' ') && bullets.length < 3) {
-        bullets.push(new Bullet());
+    if (keys.find(key => key === ' ') && rockets.length < 3) {
+        rockets.push(new Bullet());
         keys = keys.filter(key => key !== ' ');
     }
 
@@ -244,15 +268,12 @@ function Render() {
         ctx.fillText('Scor: ' + score, canvas.width / 2, canvas.height / 2 + 100);
         ctx.font = defaultFont;
         ctx.textAlign = 'start';
-        requestAnimationFrame(Render);
+        requestAnimationFrame(render);
         return;
     }
 
     // If you beat this level, create a new one
     if (asteroids.length === 0) resetLevel();
-
-    // Draw life ships
-    DrawLifeShips();
 
     // Check for collision of ship with asteroid
     if (asteroids.length !== 0) {
@@ -264,47 +285,10 @@ function Render() {
         }
     }
 
-    // Check for collision with bullet and asteroid
-    if (asteroids.length !== 0 && bullets.length !== 0) {
-        loop1:
-            for (let l = 0; l < asteroids.length; l++) {
-                for (let m = 0; m < bullets.length; m++) {
-                    if (CircleCollision(bullets[m].x, bullets[m].y, 3, asteroids[l].x, asteroids[l].y, asteroids[l].collisionRadius)) {
-                        asteroids[l].level -= 1;
-                        if (asteroids[l].level <= 0) {
-                            asteroids.splice(l, 1);
-                        }
-                        bullets.splice(m, 1);
-                        score += 20;
-
-                        // Used to break out of loops because splicing arrays
-                        // you are looping through will break otherwise
-                        break loop1;
-                    }
-                }
-            }
+    // Coliziune intre asteroizi si rachete
+    for (let m = 0; m < rockets.length; m++) {
+        rockets[m].checkCollision(m);
     }
-
-    // Deseneaza nava
-    ship.Update();
-    ship.Draw();
-
-    // Deseneaza rachetele
-    for (let i = 0; i < bullets.length; i++) {
-        bullets[i].Update();
-        bullets[i].Draw();
-    }
-
-    // Deseneaza asteroizii
-    for (let j = 0; j < asteroids.length; j++) {
-        asteroids[j].Update();
-        asteroids[j].Draw();
-    }
-
-    // Afiseaza scor
-    ctx.fillStyle = 'white';
-    ctx.font = defaultFont;
-    ctx.fillText("SCOR : " + score.toString(), 20, 40);
 
     // Adauga o viata la fiecare interval de puncte facute
     if (score - healedScore >= 100 && lives < 4) {
@@ -312,11 +296,37 @@ function Render() {
         lives += 1;
     }
 
+    // Deseneaza nava
+    ship.update();
+    ship.draw();
+
+    // Deseneaza rachetele
+    for (let i = 0; i < rockets.length; i++) {
+        rockets[i].update();
+        rockets[i].draw();
+    }
+
+    // Deseneaza asteroizii
+    for (let j = 0; j < asteroids.length; j++) {
+        asteroids[j].update();
+        asteroids[j].draw();
+    }
+
+    // Afiseaza scor
+    ctx.fillStyle = 'white';
+    ctx.font = defaultFont;
+    ctx.fillText('SCOR : ' + score.toString(), 20, 40);
+    
+
     // Stocheaza scor maxim
     highScore = Math.max(score, highScore);
     localStorage.setItem(scoreStorage, highScore);
-    ctx.fillText("SCOR MAXIM : " + highScore.toString(), 20, 80);
+    ctx.fillText('SCOR MAXIM : ' + highScore.toString(), 20, 80);
 
+    // Deseneaza vietile ramase
+    ctx.font = '30px Arial';
+    ctx.fillText('❤️'.repeat(lives), 1200, 40);
+    ctx.font = defaultFont;
 
-    requestAnimationFrame(Render);
+    requestAnimationFrame(render);
 }
