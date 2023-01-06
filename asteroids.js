@@ -17,6 +17,10 @@ const scoreStorage = 'Score';
 document.addEventListener('DOMContentLoaded', setupCanvas);
 
 
+function clamp(num, min, max) {
+    return Math.min(Math.max(num, min), max);
+}
+
 function randomBetween(min, max) {
     return Math.random() * (max - min) + min;
 }
@@ -51,26 +55,34 @@ function resetLevel() {
     }
 }
 
+function circleCollision(p1x, p1y, r1, p2x, p2y, r2) {
+    let px = p1x - p2x;
+    let py = p1y - p2y;
+
+    return r1 + r2 > Math.sqrt(px * px + py * py);
+}
+
 function setupCanvas() {
-    canvas = document.getElementById('game-canvas');
-    ctx = canvas.getContext('2d');
-    canvas.width = 1400;
-    canvas.height = 800;
-    ctx.fillStyle = 'black';
-    ctx.textBaseline = 'middle';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ship = new Ship();
-
-    for (let i = 0; i < 8; i++) {
-        asteroids.push(new Asteroid());
-    }
-
     document.body.addEventListener('keydown', function (e) {
         keys.push(e.key);
     });
     document.body.addEventListener('keyup', function (e) {
         keys = keys.filter(key => key !== e.key);
     });
+
+    canvas = document.getElementById('game-canvas');
+    canvas.width = 1400;
+    canvas.height = 800;
+    ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'black';
+    ctx.textBaseline = 'middle';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ship = new Ship();
+
+    for (let i = 0; i < 8; i++) {
+        asteroids.push(new Asteroid());
+    }
 
     // Retrieves locally stored high scores
     if (localStorage.getItem(scoreStorage) == null) {
@@ -86,15 +98,15 @@ class Ship {
     constructor() {
         this.x = canvas.width / 2;
         this.y = canvas.height / 2;
-        this.movingForward = false;
         this.speed = 0.1;
+        this.maxSpeed = 2;
+        this.rotateSpeed = 0.001;
         this.velX = 0;
         this.velY = 0;
-        this.rotateSpeed = 0.001;
         this.radius = 15;
         this.angle = 0;
         // Used to know where to fire the bullet from
-        this.noseX = canvas.width / 2 + 15;
+        this.noseX = canvas.width / 2 + this.radius;
         this.noseY = canvas.height / 2;
     }
 
@@ -103,23 +115,26 @@ class Ship {
     }
 
     update() {
-        // Get current direction ship is facing
-        let radians = toRadians(this.angle);
+        if (keys.find(key => key === 'ArrowLeft'))
+            this.velX += this.speed
+        if (keys.find(key => key === 'ArrowRight'))
+            this.velX -= this.speed
+        if (keys.find(key => key === 'ArrowUp'))
+            this.velY += this.speed
+        if (keys.find(key => key === 'ArrowDown'))
+            this.velY -= this.speed
+        if (keys.find(key => key === 'c'))
+            this.rotate(1);
+        if (keys.find(key => key === 'x'))
+            this.rotate(-1);
 
-        // If moving forward calculate changing values of x & y
-        // If you want to find the new point x use the
-        // formula oldX + cos(radians) * distance
-        // Forumla for y oldY + sin(radians) * distance
-        if (this.movingForward) {
-            this.velX += Math.cos(radians) * this.speed;
-            this.velY += Math.sin(radians) * this.speed;
-        } else {
-            // Slow ship speed when not holding key
-            this.velX *= 0.99;
-            this.velY *= 0.99;
-        }
+
+        this.velX = clamp(this.velX, -this.maxSpeed, this.maxSpeed)
+        this.velY = clamp(this.velY, -this.maxSpeed, this.maxSpeed)
         this.x -= this.velX;
         this.y -= this.velY;
+        this.velX = this.velX * 0.97;
+        this.velY = this.velY * 0.97;
 
         // Daca nava trece de ecran, pune-o in partea cealalta
         this.x = wrapScreen(this.x, canvas.width);
@@ -127,8 +142,8 @@ class Ship {
     }
 
     draw() {
-        ctx.strokeStyle = 'white';
         ctx.beginPath();
+        ctx.strokeStyle = 'white';
         // Angle between vertices of the ship
         let vertAngle = ((Math.PI * 2) / 3);
 
@@ -146,24 +161,23 @@ class Ship {
     }
 }
 
-class Bullet {
+class Rocket {
     constructor() {
         this.x = ship.noseX;
         this.y = ship.noseY;
         this.angle = ship.angle;
-        this.height = 4;
-        this.width = 4;
+        this.size = 6;
         this.speed = 5;
     }
 
-    checkCollision(bulletIndex) {
+    checkCollision(rocketIndex) {
         for (let l = 0; l < asteroids.length; l++) {
-            if (CircleCollision(this.x, this.y, 3, asteroids[l].x, asteroids[l].y, asteroids[l].collisionRadius)) {
+            if (circleCollision(this.x, this.y, 3, asteroids[l].x, asteroids[l].y, asteroids[l].radius)) {
                 asteroids[l].lives -= 1;
                 if (asteroids[l].lives <= 0) {
                     asteroids.splice(l, 1);
                 }
-                rockets.splice(bulletIndex, 1);
+                rockets.splice(rocketIndex, 1);
                 score += 20;
                 return;
             }
@@ -181,7 +195,7 @@ class Bullet {
 
     draw() {
         ctx.fillStyle = 'white';
-        ctx.fillRect(this.x, this.y, this.width, this.height);
+        ctx.fillRect(this.x, this.y, this.size, this.size);
     }
 }
 
@@ -193,11 +207,10 @@ class Asteroid {
         this.speed = randomBetween(0.5, 2.3);
         this.radius = 30 + this.lives * 5;
         this.angle = Math.floor(Math.random() * 359);
-        this.collisionRadius = 46;
     }
 
-    getColor(){
-        switch(this.lives){
+    getColor() {
+        switch (this.lives) {
             case 1:
                 return 'green'
             case 2:
@@ -230,36 +243,16 @@ class Asteroid {
     }
 }
 
-function CircleCollision(p1x, p1y, r1, p2x, p2y, r2) {
-    let radiusSum = r1 + r2;
-    let xDiff = p1x - p2x;
-    let yDiff = p1y - p2y;
-
-    return radiusSum > Math.sqrt((xDiff * xDiff) + (yDiff * yDiff));
-}
-
 function render() {
-    // Check if the ship is moving forward
-    ship.movingForward = (keys.find(key => key === 'ArrowUp'));
-
-    if (keys.find(key => key === 'c')) {
-        // d key rotate right
-        ship.rotate(1);
-    }
-    if (keys.find(key => key === 'x')) {
-        // a key rotate left
-        ship.rotate(-1);
-    }
-
     // Lanseaza racheta
     if (keys.find(key => key === ' ') && rockets.length < 3) {
-        rockets.push(new Bullet());
+        rockets.push(new Rocket());
         keys = keys.filter(key => key !== ' ');
     }
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // If no lives signal game over
+    // Daca nu mai ai vieti
     if (lives <= 0) {
         ctx.fillStyle = 'white';
         ctx.font = '100px Arial';
@@ -272,13 +265,13 @@ function render() {
         return;
     }
 
-    // If you beat this level, create a new one
+    // Daca ai terminat nivelul
     if (asteroids.length === 0) resetLevel();
 
-    // Check for collision of ship with asteroid
+    // Coliziune nava cu asteroizi
     if (asteroids.length !== 0) {
         for (let k = 0; k < asteroids.length; k++) {
-            if (CircleCollision(ship.x, ship.y, 11, asteroids[k].x, asteroids[k].y, asteroids[k].collisionRadius)) {
+            if (circleCollision(ship.x, ship.y, 11, asteroids[k].x, asteroids[k].y, asteroids[k].radius)) {
                 resetShip();
                 if (lives > 0) lives -= 1;
             }
@@ -315,13 +308,13 @@ function render() {
     // Afiseaza scor
     ctx.fillStyle = 'white';
     ctx.font = defaultFont;
-    ctx.fillText('SCOR : ' + score.toString(), 20, 40);
-    
+    ctx.fillText('SCOR : ' + score, 20, 40);
+
 
     // Stocheaza scor maxim
     highScore = Math.max(score, highScore);
     localStorage.setItem(scoreStorage, highScore);
-    ctx.fillText('SCOR MAXIM : ' + highScore.toString(), 20, 80);
+    ctx.fillText('SCOR MAXIM : ' + highScore, 20, 80);
 
     // Deseneaza vietile ramase
     ctx.font = '30px Arial';
