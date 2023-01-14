@@ -84,7 +84,7 @@ function setupCanvas() {
         asteroids.push(new Asteroid());
     }
 
-    // Retrieves locally stored high scores
+    // Preia scorul maxim din local storage
     if (localStorage.getItem(scoreStorage) == null) {
         highScore = 0;
     } else {
@@ -105,7 +105,8 @@ class Ship {
         this.velY = 0;
         this.radius = 15;
         this.angle = 0;
-        // Used to know where to fire the bullet from
+
+        // De unde trage nava
         this.noseX = canvas.width / 2 + this.radius;
         this.noseY = canvas.height / 2;
     }
@@ -144,11 +145,11 @@ class Ship {
     draw() {
         ctx.beginPath();
         ctx.strokeStyle = 'white';
-        // Angle between vertices of the ship
+        // Unghiul dintre liniile navei (triunghi echilateral)
         let vertAngle = ((Math.PI * 2) / 3);
 
         let radians = toRadians(this.angle);
-        // Where to fire bullet from
+        // De unde va trage nava  racheta
         this.noseX = this.x - this.radius * Math.cos(radians);
         this.noseY = this.y - this.radius * Math.sin(radians);
 
